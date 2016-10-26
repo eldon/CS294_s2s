@@ -7,18 +7,13 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
 class Seq2SeqModel(object):
-  def __init__(self,source_vocab_size,target_vocab_size,buckets,size,num_layers,max_gradient_norm,
-  batch_size,learning_rate,num_samples=512,forward_only=False,dtype=tf.float32):
-    """Create the model.
-    Args:
-      source_vocab_size: size of the source vocabulary.
+  def __init__(self,source_vocab_size,target_vocab_size,buckets,size,num_layers,max_gradient_norm,batch_size,learning_rate,num_samples=512,forward_only=False,dtype=tf.float32):
+    """source_vocab_size: size of the source vocabulary.
       target_vocab_size: size of the target vocabulary.
       size: number of units in each layer of the model.
       num_layers: number of layers in the model.
       max_gradient_norm: gradients will be clipped to maximally this norm.
-      batch_size: the size of the batches used during training;
-        the model construction is independent of batch_size, so it can be
-        changed after initialization if this is convenient, e.g., for decoding.
+      batch_size: size of batches. Can be changed later
       learning_rate: learning rate to start with.
       num_samples: number of samples for sampled softmax.
       forward_only: if set, we do not construct the backward pass in the model.
@@ -28,7 +23,10 @@ class Seq2SeqModel(object):
     self.target_vocab_size = target_vocab_size
     self.buckets = buckets
     self.batch_size = batch_size
-    self.learning_rate = float(learning_rate)
+
+    self.learning_rate = tf.Variable(float(learning_rate), trainable=False, dtype=dtype)
+    self.learning_rate_decay_op = self.learning_rate.assign(self.learning_rate * 0.99) # This is a function we run when needed
+
     self.global_step = tf.Variable(0, trainable=False) # This is in case we want to use exponential decay on LR
 
     # If we use sampled softmax, we need an output projection.
@@ -86,10 +84,9 @@ class Seq2SeqModel(object):
           self.outputs[b] = [tf.matmul(output, output_projection[0]) + output_projection[1] for output in self.outputs[b]] # Extra last layer
 
     # Gradients and SGD update operation for training the model.
-    params = tf.trainable_variables()
     if not forward_only:
-      self.gradient_norms = []
-      self.updates = []
+      params = tf.trainable_variables()
+      self.gradient_norms = []; self.updates = []
       opt = tf.train.GradientDescentOptimizer(self.learning_rate)
       for b in xrange(len(buckets)):
         gradients = tf.gradients(self.losses[b], params)
@@ -100,20 +97,12 @@ class Seq2SeqModel(object):
     self.saver = tf.train.Saver(tf.all_variables())
 
   def step(self, session, encoder_inputs, decoder_inputs, target_weights, bucket_id, forward_only):
-    """Run a step of the model feeding the given inputs.
-
-    Args:
-      session: tensorflow session to use.
+    """session: tensorflow session to use.
       encoder_inputs: list of numpy int vectors to feed as encoder inputs.
       decoder_inputs: list of numpy int vectors to feed as decoder inputs.
       target_weights: list of numpy float vectors to feed as target weights.
       bucket_id: which bucket of the model to use.
       forward_only: whether to do the backward step or only forward.
-
-    Returns:
-      A triple consisting of gradient norm (or None if we did not do backward),
-      average perplexity, and the outputs.
-
     """
     encoder_size, decoder_size = self.buckets[bucket_id]
 
@@ -131,7 +120,7 @@ class Seq2SeqModel(object):
 
     # Output feed: depends on whether we do a backward step or not.
     if not forward_only:
-      output_feed = [self.losses[bucket_id], self.updates[bucket_id], self.gradient_norms[bucket_id]]
+      output_feed = [self.losses[bucket_id], self.gradient_norms[bucket_id]] # , self.updates[bucket_id]
     else:
       output_feed = [self.losses[bucket_id]]  # Loss for this batch.
       for l in xrange(decoder_size):  # Output logits.
@@ -139,6 +128,6 @@ class Seq2SeqModel(object):
 
     outputs = session.run(output_feed, input_feed)
     if not forward_only:
-      return outputs[2], outputs[0], None  # Gradient norm, loss, no outputs.
+      return outputs[1], outputs[0], None  # Gradient norm, loss, no outputs.
     else:
       return None, outputs[0], outputs[1:]  # No gradient norm, loss, outputs.

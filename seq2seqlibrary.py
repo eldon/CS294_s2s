@@ -106,8 +106,7 @@ def _extract_argmax_and_embed(embedding, output_projection=None,
   return loop_function
 
 
-def rnn_decoder(decoder_inputs, initial_state, cell, loop_function=None,
-                scope=None):
+def rnn_decoder(decoder_inputs, initial_state, cell, loop_function=None, scope=None):
   """RNN decoder for the sequence-to-sequence model.
 
   Args:
@@ -150,8 +149,7 @@ def rnn_decoder(decoder_inputs, initial_state, cell, loop_function=None,
   return outputs, state
 
 
-def basic_rnn_seq2seq(
-    encoder_inputs, decoder_inputs, cell, dtype=dtypes.float32, scope=None):
+def basic_rnn_seq2seq(encoder_inputs, decoder_inputs, cell, dtype=dtypes.float32, scope=None):
   """Basic RNN sequence-to-sequence model.
 
   This model first runs an RNN to encode encoder_inputs into a state vector,
@@ -205,22 +203,13 @@ def tied_rnn_seq2seq(encoder_inputs, decoder_inputs, cell,
   """
   with variable_scope.variable_scope("combined_tied_rnn_seq2seq"):
     scope = scope or "tied_rnn_seq2seq"
-    _, enc_state = rnn.rnn(
-        cell, encoder_inputs, dtype=dtype, scope=scope)
+    _, enc_state = rnn.rnn(cell, encoder_inputs, dtype=dtype, scope=scope)
     variable_scope.get_variable_scope().reuse_variables()
-    return rnn_decoder(decoder_inputs, enc_state, cell,
-                       loop_function=loop_function, scope=scope)
+    return rnn_decoder(decoder_inputs, enc_state, cell, loop_function=loop_function, scope=scope)
 
 
-def embedding_rnn_decoder(decoder_inputs,
-                          initial_state,
-                          cell,
-                          num_symbols,
-                          embedding_size,
-                          output_projection=None,
-                          feed_previous=False,
-                          update_embedding_for_previous=True,
-                          scope=None):
+def embedding_rnn_decoder(decoder_inputs, initial_state, cell, num_symbols, embedding_size, output_projection=None, feed_previous=False,
+  update_embedding_for_previous=True, scope=None):
   """RNN decoder with embedding and a pure-decoding option.
 
   Args:
@@ -269,27 +258,12 @@ def embedding_rnn_decoder(decoder_inputs,
       proj_biases = ops.convert_to_tensor(output_projection[1], dtype=dtype)
       proj_biases.get_shape().assert_is_compatible_with([num_symbols])
 
-    embedding = variable_scope.get_variable("embedding",
-                                            [num_symbols, embedding_size])
-    loop_function = _extract_argmax_and_embed(
-        embedding, output_projection,
-        update_embedding_for_previous) if feed_previous else None
-    emb_inp = (
-        embedding_ops.embedding_lookup(embedding, i) for i in decoder_inputs)
-    return rnn_decoder(emb_inp, initial_state, cell,
-                       loop_function=loop_function)
+    embedding = variable_scope.get_variable("embedding", [num_symbols, embedding_size])
+    loop_function = _extract_argmax_and_embed(embedding, output_projection, update_embedding_for_previous) if feed_previous else None
+    emb_inp = (embedding_ops.embedding_lookup(embedding, i) for i in decoder_inputs)
+    return rnn_decoder(emb_inp, initial_state, cell, loop_function=loop_function)
 
-
-def embedding_rnn_seq2seq(encoder_inputs,
-                          decoder_inputs,
-                          cell,
-                          num_encoder_symbols,
-                          num_decoder_symbols,
-                          embedding_size,
-                          output_projection=None,
-                          feed_previous=False,
-                          dtype=None,
-                          scope=None):
+def embedding_rnn_seq2seq(encoder_inputs, decoder_inputs, cell, num_encoder_symbols, num_decoder_symbols, embedding_size, output_projection=None, feed_previous=False, dtype=None, scope=None):
   """Embedding RNN sequence-to-sequence model.
 
   This model first embeds encoder_inputs by a newly created embedding (of shape
@@ -337,9 +311,7 @@ def embedding_rnn_seq2seq(encoder_inputs,
       dtype = scope.dtype
 
     # Encoder.
-    encoder_cell = rnn_cell.EmbeddingWrapper(
-        cell, embedding_classes=num_encoder_symbols,
-        embedding_size=embedding_size)
+    encoder_cell = rnn_cell.EmbeddingWrapper(cell, embedding_classes=num_encoder_symbols, embedding_size=embedding_size)
     _, encoder_state = rnn.rnn(encoder_cell, encoder_inputs, dtype=dtype)
 
     # Decoder.
@@ -347,20 +319,13 @@ def embedding_rnn_seq2seq(encoder_inputs,
       cell = rnn_cell.OutputProjectionWrapper(cell, num_decoder_symbols)
 
     if isinstance(feed_previous, bool):
-      return embedding_rnn_decoder(
-          decoder_inputs,
-          encoder_state,
-          cell,
-          num_decoder_symbols,
-          embedding_size,
-          output_projection=output_projection,
+      return embedding_rnn_decoder(decoder_inputs, encoder_state, cell, num_decoder_symbols, embedding_size, output_projection=output_projection,
           feed_previous=feed_previous)
 
     # If feed_previous is a Tensor, we construct 2 graphs and use cond.
     def decoder(feed_previous_bool):
       reuse = None if feed_previous_bool else True
-      with variable_scope.variable_scope(
-          variable_scope.get_variable_scope(), reuse=reuse) as scope:
+      with variable_scope.variable_scope(variable_scope.get_variable_scope(), reuse=reuse) as scope:
         outputs, state = embedding_rnn_decoder(
             decoder_inputs, encoder_state, cell, num_decoder_symbols,
             embedding_size, output_projection=output_projection,
@@ -371,15 +336,12 @@ def embedding_rnn_seq2seq(encoder_inputs,
           state_list = nest.flatten(state)
         return outputs + state_list
 
-    outputs_and_state = control_flow_ops.cond(feed_previous,
-                                              lambda: decoder(True),
-                                              lambda: decoder(False))
+    outputs_and_state = control_flow_ops.cond(feed_previous, lambda: decoder(True), lambda: decoder(False))
     outputs_len = len(decoder_inputs)  # Outputs length same as decoder inputs.
     state_list = outputs_and_state[outputs_len:]
     state = state_list[0]
     if nest.is_sequence(encoder_state):
-      state = nest.pack_sequence_as(structure=encoder_state,
-                                    flat_sequence=state_list)
+      state = nest.pack_sequence_as(structure=encoder_state, flat_sequence=state_list)
     return outputs_and_state[:outputs_len], state
 
 
@@ -980,9 +942,7 @@ def one2many_rnn_seq2seq(encoder_inputs,
   return outputs_dict, state_dict
 
 
-def sequence_loss_by_example(logits, targets, weights,
-                             average_across_timesteps=True,
-                             softmax_loss_function=None, name=None):
+def sequence_loss_by_example(logits, targets, weights, average_across_timesteps=True, softmax_loss_function=None, name=None):
   """Weighted cross-entropy loss for a sequence of logits (per example).
 
   Args:
@@ -1004,8 +964,7 @@ def sequence_loss_by_example(logits, targets, weights,
   if len(targets) != len(logits) or len(weights) != len(logits):
     raise ValueError("Lengths of logits, weights, and targets must be the same "
                      "%d, %d, %d." % (len(logits), len(weights), len(targets)))
-  with ops.name_scope(name, "sequence_loss_by_example",
-                      logits + targets + weights):
+  with ops.name_scope(name, "sequence_loss_by_example", logits + targets + weights):
     log_perp_list = []
     for logit, target, weight in zip(logits, targets, weights):
       if softmax_loss_function is None:
@@ -1013,8 +972,7 @@ def sequence_loss_by_example(logits, targets, weights,
         # sequence_loss_by_example is called with scalars sometimes, which
         # violates our general scalar strictness policy.
         target = array_ops.reshape(target, [-1])
-        crossent = nn_ops.sparse_softmax_cross_entropy_with_logits(
-            logit, target)
+        crossent = nn_ops.sparse_softmax_cross_entropy_with_logits(logit, target)
       else:
         crossent = softmax_loss_function(logit, target)
       log_perp_list.append(crossent * weight)
@@ -1049,10 +1007,7 @@ def sequence_loss(logits, targets, weights,
     ValueError: If len(logits) is different from len(targets) or len(weights).
   """
   with ops.name_scope(name, "sequence_loss", logits + targets + weights):
-    cost = math_ops.reduce_sum(sequence_loss_by_example(
-        logits, targets, weights,
-        average_across_timesteps=average_across_timesteps,
-        softmax_loss_function=softmax_loss_function))
+    cost = math_ops.reduce_sum(sequence_loss_by_example(logits, targets, weights, average_across_timesteps=average_across_timesteps, softmax_loss_function=softmax_loss_function))
     if average_across_batch:
       batch_size = array_ops.shape(targets[0])[0]
       return cost / math_ops.cast(batch_size, cost.dtype)
@@ -1112,18 +1067,12 @@ def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
   outputs = []
   with ops.name_scope(name, "model_with_buckets", all_inputs):
     for j, bucket in enumerate(buckets):
-      with variable_scope.variable_scope(variable_scope.get_variable_scope(),
-                                         reuse=True if j > 0 else None):
-        bucket_outputs, _ = seq2seq(encoder_inputs[:bucket[0]],
-                                    decoder_inputs[:bucket[1]])
+      with variable_scope.variable_scope(variable_scope.get_variable_scope(), reuse=True if j > 0 else None):
+        bucket_outputs, _ = seq2seq(encoder_inputs[:bucket[0]], decoder_inputs[:bucket[1]])
         outputs.append(bucket_outputs)
         if per_example_loss:
-          losses.append(sequence_loss_by_example(
-              outputs[-1], targets[:bucket[1]], weights[:bucket[1]],
-              softmax_loss_function=softmax_loss_function))
+          losses.append(sequence_loss_by_example(outputs[-1], targets[:bucket[1]], weights[:bucket[1]], softmax_loss_function=softmax_loss_function))
         else:
-          losses.append(sequence_loss(
-              outputs[-1], targets[:bucket[1]], weights[:bucket[1]],
-              softmax_loss_function=softmax_loss_function))
+          losses.append(sequence_loss(outputs[-1], targets[:bucket[1]], weights[:bucket[1]], softmax_loss_function=softmax_loss_function))
 
   return outputs, losses
