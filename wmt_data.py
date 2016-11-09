@@ -262,7 +262,7 @@ def get_all_bucket(data, buckets, bucket_id):
 
   # Get a random batch of encoder and decoder inputs from data,
   # pad them if needed, reverse encoder inputs and add GO to decoder.
-  for i in range(min(500, len(data[bucket_id]))):
+  for i in range(min(512, len(data[bucket_id]))):
     encoder_input, decoder_input = data[bucket_id][i]
 
     # Encoder inputs are padded and then reversed.

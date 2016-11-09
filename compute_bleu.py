@@ -15,19 +15,20 @@ def buildSentence(ids, vocab):
         sent = sent[:index]
     return " ".join(sent).replace('_PAD', '').replace('_EOS', '')
 
-def computeBleu(sess, model, dev_set, rev_vocab_en, rev_vocab_fr):
+def computeBleu(sess, model, dev_set, rev_vocab_en, rev_vocab_fr, ppb=0):
     bleus = []
-    for bucket_id in xrange(len(model.buckets)):
-        encoder_inputs, decoder_inputs, target_weights = get_all_bucket(dev_set, model.buckets, bucket_id)
-        bucket_size = len(encoder_inputs[0])
-        model.batch_size = bucket_size
-        loss, outputs = model.test_step(sess, encoder_inputs, decoder_inputs, target_weights, bucket_id)
-        english_sentences = np.array(encoder_inputs).T
+    for b_id in xrange(len(model.buckets)):
+        inp, gold, _ = get_all_bucket(dev_set, model.buckets, b_id)
+        outputs = model.test_step(sess, inp, b_id)
+        english_sentences = np.array(inp).T
         french_translation = np.argmax(np.array(outputs), axis=2).T
-        french_gold = np.array(decoder_inputs).T
-        for i in range(bucket_size):
+        french_gold = np.array(gold).T
+        for i in range(len(inp[0])):
             en = buildSentence(reversed(english_sentences[i]), rev_vocab_en)
             fr = buildSentence(french_translation[i], rev_vocab_fr)
             fr_gold = buildSentence(french_gold[i][1:], rev_vocab_fr)
+            if i < ppb:
+                print en, "\n", fr, "\n", fr_gold
+                print "------------------"
             bleus.append(bleu(fr_gold, fr))
     return np.mean(np.array(bleus))
