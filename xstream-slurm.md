@@ -80,9 +80,9 @@
     ```bash
     [xs-username@xstream-ln0X ~]$ module spider [MODULE]/[VERSION]
     ```
-  - Example on how to load CUDA, cuDNN and TensorFlow:
+  - Example on how to load TensorFlow (_which automatically loads CUDA and cuDNN_):
     ```bash
-    [xs-username@xstream-ln0X ~]$ ml CUDA/7.5.18 cuDNN/5.1-CUDA-7.5.18 tensorflow/0.10
+    [xs-username@xstream-ln0X ~]$ ml tensorflow/0.10
     ```
     where `ml` is an alias for `module load`.
 
@@ -128,7 +128,7 @@ Putting it all together (_A Sample SLURM scipt_):
  #SBATCH --gres gpu:4
  #SBATCH --gres-flags=enforce-binding
 
- ml CUDA/7.5.18 cuDNN/5.1-CUDA-7.5.18 protobuf/2.6.1 tensorflow/0.10
+ ml tensorflow/0.10 protobuf/2.6.1
 
  python main.py ...
  ```
