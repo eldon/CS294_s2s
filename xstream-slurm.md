@@ -1,10 +1,11 @@
 ### XStream SU (GPU Compute Units)
 
-<div class="text-center">**T** = |_G_| x _t_ </div>
-where:
-- **T**: The total SUs charged.
-- |_G_|: The total number of GPUs used.
-- _t_: The total wallclock time in hours.
+> **T** = |_G_| x _t_
+
+> where:
+  - **T**: The total SUs charged.
+  - |_G_|: The total number of GPUs used.
+  - _t_: The total wallclock time in hours.
 
 
 ### Single Sign On (SSO) Hub & XStream Login
@@ -93,8 +94,8 @@ Queues and QoS:
 
 | Slurm QoS | Max CPUs | Max GPUs | Max Jobs | Max Nodes | Job Time Limits |
 |:----------|:--------:|:--------:|:--------:|:---------:|:---------------:|
-|`normal`| 320/USER 400/GROUP | 256/USER 320/GROUP | 512/USER | 16/USER 20/GROUP | 48 HOURS |
- |`long`** | 20/USER 80/GROUP 200 MAX TOTAL | 16/USER 64/GROUP 160 MAX TOTAL | 4/USER 64 MAX TOTAL | N/A | 7 DAYS |
+|`normal`| 320/USER, 400/GROUP | 256/USER, 320/GROUP | 512/USER | 16/USER, 20/GROUP | 48 HOURS |
+|`long`** | 20/USER, 80/GROUP, 200 MAX TOTAL | 16/USER, 64/GROUP, 160 MAX TOTAL | 4/USER, 64 MAX TOTAL | N/A | 7 DAYS |
 
  ** Enable the long QoS mode via the `--qos=long` flag when submitting jobs.
 
