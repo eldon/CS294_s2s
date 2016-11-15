@@ -133,6 +133,7 @@ Putting it all together (_A Sample SLURM scipt_):
  python main.py ...
  ```
 - Submit the job via the `sbatch` command:
+  
  ```bash
  [xs-username@xstream-ln0X ~]$ sbatch submit.sh
  Submitted batch job XXXX
