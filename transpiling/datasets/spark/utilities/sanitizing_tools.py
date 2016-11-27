@@ -3,6 +3,8 @@ import re
 
 from os.path import join
 
+# file structure sanitizing tools
+
 def sanitize_name(f):
     f = f[:f.rfind('.')]
     return ''.join(n.lower() for n in f if n.isalpha() or n == '.')
@@ -38,7 +40,7 @@ def process_dataset(left, right):
     prune_dir(right, matches)
 
 
-# regex snippets
+# regex snippets for python files
 
 def spaces_to_tab_token(instring):
     return re.sub(re.compile(r'( {4}|\t)', re.MULTILINE), '!TAB', instring)
@@ -56,7 +58,7 @@ def tokenize_str(instring):
     return split_on_tokens(p)
 
 
-# do the sanitizing
+# batch sanitizing
 
 def tokenize_dir(rootdir):
     matches = {}
