@@ -80,6 +80,12 @@ def count_files(d, ftype):
 
 
 def save_progress(data, location, verbose=True):
+    """Attempts to update a data file at location with new data, rewrites otherwise.
+
+    This will iteratively append to location. If a datafile is not found,
+    it will create a new one. If it cannot .extend to data (usually assuming
+    data is in a list), it will fail loudly.
+    """
     ret = True
     try:
         if verbose: print('Finding existing file...', end='')
@@ -99,6 +105,12 @@ def save_progress(data, location, verbose=True):
 
 
 def parse_source_files(d, ftype, compiler=_coffeescript_compile):
+    """Find all files with extension ftype in a directory d, recursively.
+
+    For each file, 'compile' it using compiler, and append to a list of tuples
+    with (tokenized_uncompiled, tokenized_compiled). If compiler throws a ValueError,
+    that file will be skipped.
+    """
     data = []
     curdir = os.getcwd()
     num_files = count_files(d, ftype)
@@ -126,6 +138,8 @@ def parse_source_files(d, ftype, compiler=_coffeescript_compile):
 
 
 def _get_source_dirs(sources_dir):
+    """Returns all directories in sources_dir
+    """
     return [
         join(sources_dir, d) \
         for d in os.listdir(sources_dir) \
@@ -134,6 +148,9 @@ def _get_source_dirs(sources_dir):
 
 
 def collect_from_dirs(sources_dir, ftype, save_loc):
+    """Given a directory sources_dir of source directories, find all files with extension
+    ftype and create build a dataset into save_loc.
+    """
     collected_dirs = set()
     source_dirs = [None]
 
