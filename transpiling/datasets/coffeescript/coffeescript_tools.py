@@ -1,4 +1,10 @@
 """Tools for organizing, sanitizing, and tokenizing coffeescript.
+
+Workflow:
+>>> collect_from_dirs(<dir of repos>, <filetype>, <output path>)
+>>> data = pickle.load(open(<output path>, 'rb'))
+>>> in_tokens, out_tokens, stats = generate_vocab(data, save=<another output path>)
+>>> export_dataset(data, in_tokens, out_tokens, <input path>, <output path>, <vocab limit>)
 """
 
 from __future__ import print_function
@@ -14,9 +20,6 @@ import sys
 from collections import defaultdict
 from os.path import join
 
-
-# reload(sys)
-# sys.setdefaultencoding('utf-8')  # i live dangerously
 
 # regex utilities
 
@@ -198,27 +201,41 @@ def generate_vocab(data_in, save=False):
     return in_tokens, out_tokens, (in_tokens_f, out_tokens_f)
 
 
-def _token_to_int(t, token_list, token_cache):
+def _token_to_int(t, token_list, token_cache, size_limit=float('inf')):
     """Return the int which represents a token, with caching.
+
+    Throws a ValueError if token t is not in the token_list. There MUST
+    be a _UNK token at the beginning of your vocab, or this may not halt.
     """
     if t not in token_cache:
-        token_cache[t] = token_list.index(t)
-    return token_cache[t]
+        token = token_list.index(t)
+        if token >= size_limit:  # too infrequent to include, >= for 0-index
+            token = _token_to_int('_UNK', token_list, token_cache)
+        token_cache[t] = token  # cache this token
+    else:
+        token = token_cache[t]
+    return token
 
 
-def _tokens_to_intfile(dataset, f, tokens, cache=None):
+def _tokens_to_intfile(dataset, f, tokens, size_limit=float('inf'), cache=None):
     """Given a list, dataset, of lists of tokens in tokens, write ints to file f.
     """
     if cache is None:
         cache = {}
     with open(f, 'wb') as ff:
         for i, example in enumerate(dataset):
-            intstream = (_token_to_int(t, tokens, cache) for t in example)
+            intstream = (_token_to_int(t, tokens, cache, size_limit) for t in example)
             ff.write(' '.join(unicode(s) for s in intstream) + '\n')
-        print('Wrote {}'.format(f))
+            if i % 10 == 0:
+                print('{}/{} processed'.format(i, len(dataset)))
+        print('{}/{} processed'.format(i+1, len(dataset)))
+    print('Wrote {}'.format(f))
 
 
-def export_dataset(data, in_tokens, out_tokens, in_file, out_file):
+def export_dataset(data, in_tokens, out_tokens, in_file, out_file, vocab_limit):
+    """Given a list, data, of pairs (in_tokens, out_tokens), write each to files
+    in_file and out_file.
+    """
     data_in, data_out = zip(*data)  # actually unzip!
-    _tokens_to_intfile(data_in, in_file, in_tokens)
-    _tokens_to_intfile(data_out, out_file, out_tokens)
+    _tokens_to_intfile(data_in, in_file, in_tokens, vocab_limit)
+    _tokens_to_intfile(data_out, out_file, out_tokens, vocab_limit)
