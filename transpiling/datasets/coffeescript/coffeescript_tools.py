@@ -2,15 +2,21 @@
 """
 
 from __future__ import print_function
+from __future__ import unicode_literals
 
-import os
+import codecs
 import cPickle as pickle
+import os
 import re
 import subprocess
 import sys
 
+from collections import defaultdict
 from os.path import join
 
+
+# reload(sys)
+# sys.setdefaultencoding('utf-8')  # i live dangerously
 
 # regex utilities
 
@@ -39,7 +45,7 @@ def untokenize_list(inlist):
     """Translates a tokenized file back to readable source.
     """
     s = ''.join(inlist)  # lol
-    s = re.sub('!RET', r'\n', s)
+    s = re.sub('!RET', '\n', s)
     return re.sub('!TAB', '  ', s)
 
 
@@ -117,9 +123,9 @@ def parse_source_files(d, ftype, compiler=_coffeescript_compile):
     i, skips = 0, 0
     try:
         os.chdir(d)
-        for dirname, dirs, files in os.walk('.'):
+        for dirname, _, files in os.walk('.'):
             for f in filter(lambda f: f.endswith(ftype), files):
-                with open(join(dirname, f), 'rb') as ff:
+                with codecs.open(join(dirname, f), 'r') as ff:
                     coffee_in = ff.read()
                     try:
                         js_out = compiler(join(dirname, f))
@@ -163,3 +169,56 @@ def collect_from_dirs(sources_dir, ftype, save_loc):
             data = parse_source_files(source_dir, ftype)
             print('Saving work from {}'.format(source_dir))
             save_progress(data, save_loc)
+
+
+def generate_vocab(data_in, save=False):
+    """Given a list of (in, out) examples, construct lists of tokens
+    arranged by frequency.
+    """
+    START_VOCAB = ['_PAD', '_GO', '_EOS', '_UNK']
+    in_tokens_f = defaultdict(int)
+    out_tokens_f = defaultdict(int)
+    for (d_in, d_out) in data_in:
+        for t in d_in:
+            in_tokens_f[t] += 1
+        for t in d_out:
+            out_tokens_f[t] += 1
+    in_tokens = START_VOCAB + sorted(in_tokens_f, key=in_tokens_f.get, reverse=True)
+    out_tokens = START_VOCAB + sorted(out_tokens_f, key=out_tokens_f.get, reverse=True)
+    if save:
+        token_data = {
+            'in_tokens': in_tokens,
+            'out_tokens': out_tokens,
+            'in_tokens_f': in_tokens_f,
+            'out_tokens_f': out_tokens_f,
+        }
+        with open(save, 'wb') as f:
+            pickle.dump(token_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+            print('Wrote {}'.format(save))
+    return in_tokens, out_tokens, (in_tokens_f, out_tokens_f)
+
+
+def _token_to_int(t, token_list, token_cache):
+    """Return the int which represents a token, with caching.
+    """
+    if t not in token_cache:
+        token_cache[t] = token_list.index(t)
+    return token_cache[t]
+
+
+def _tokens_to_intfile(dataset, f, tokens, cache=None):
+    """Given a list, dataset, of lists of tokens in tokens, write ints to file f.
+    """
+    if cache is None:
+        cache = {}
+    with open(f, 'wb') as ff:
+        for i, example in enumerate(dataset):
+            intstream = (_token_to_int(t, tokens, cache) for t in example)
+            ff.write(' '.join(unicode(s) for s in intstream) + '\n')
+        print('Wrote {}'.format(f))
+
+
+def export_dataset(data, in_tokens, out_tokens, in_file, out_file):
+    data_in, data_out = zip(*data)  # actually unzip!
+    _tokens_to_intfile(data_in, in_file, in_tokens)
+    _tokens_to_intfile(data_out, out_file, out_tokens)
