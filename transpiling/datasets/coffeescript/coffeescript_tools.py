@@ -1,4 +1,5 @@
 """Tools for organizing, sanitizing, and tokenizing coffeescript.
+<<<<<<< HEAD
 
 Workflow:
 >>> collect_from_dirs(<dir of repos>, <filetype>, <output path>)
@@ -48,7 +49,7 @@ def untokenize_list(inlist):
     """Translates a tokenized file back to readable source.
     """
     s = ''.join(inlist)  # lol
-    s = re.sub('!RET', '\n', s)
+    s = re.sub('!RET', r'\n', s)
     return re.sub('!TAB', '  ', s)
 
 
