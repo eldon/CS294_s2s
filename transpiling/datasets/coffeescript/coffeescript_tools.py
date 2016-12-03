@@ -21,6 +21,8 @@ import sys
 from collections import defaultdict
 from os.path import join
 
+reload(sys)
+sys.setdefaultencoding('UTF8')  # steamroll encoding errors...
 
 # regex utilities
 
@@ -209,6 +211,9 @@ def _token_to_int(t, token_list, token_cache, size_limit=float('inf')):
     be a _UNK token at the beginning of your vocab, or this may not halt.
     """
     if t not in token_cache:
+        if t == '!RET':
+            token_cache[t] = r'\n'
+            return '\n'
         token = token_list.index(t)
         if token >= size_limit:  # too infrequent to include, >= for 0-index
             token = _token_to_int('_UNK', token_list, token_cache)
