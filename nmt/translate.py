@@ -233,80 +233,76 @@ def train_multi():
                     sys.stdout.flush()
 
 def train():
-    with open(os.path.join(_FLAGS.output_dir, 'train.out'), 'w') as f:
-        # Graph Creation.
-        graph = tf.Graph()
+    # Graph Creation.
+    graph = tf.Graph()
+    t = time()
+    with graph.as_default():
+        model = Model(source_vocab_size=_EN_VOCAB,
+                      target_vocab_size=_FR_VOCAB,
+                      buckets=_BUCKETS,
+                      size=512,
+                      num_layers=3,
+                      batch_size=256,
+                      use_lstm=True,
+                      use_local=True,
+                      optim='adam',
+                      num_samples=None)
+    print(linebreak())
+    print('Initializing Graphs took %.3f s\n' % (time() - t))
+    print(linebreak())
+    sys.stdout.flush()
+
+    with tf.Session(graph=graph, config=_CONFIG) as sess:
+
+        # Initializations.
         t = time()
-        with graph.as_default():
-            model = Model(source_vocab_size=_EN_VOCAB,
-                          target_vocab_size=_FR_VOCAB,
-                          buckets=_BUCKETS,
-                          size=512,
-                          num_layers=3,
-                          learning_rate=None,
-                          batch_size=256,
-                          use_lstm=True,
-                          use_local=True,
-                          optim='adam',
-                          num_samples=None)
-        print(linebreak())
-        print('Initializing Graphs took %.3f s\n' % (time() - t))
+        save_path = os.path.join(_FLAGS.train_dir, 'model')
+        model.load(sess, save_path)
+        print('Initializing Variables took %.3f s\n' % (time() - t))
         print(linebreak())
         sys.stdout.flush()
+        
+        # Gather Data.
+        dataset = get_data(en_ids_path=os.path.join(_FLAGS.data_dir, _EN_DATA),
+                           fr_ids_path=os.path.join(_FLAGS.data_dir, _FR_DATA))
+        intervals = get_weights(dataset)
 
-        with tf.Session(graph=graph, config=_CONFIG) as sess:
+        # Book-keeping.
+        step_time = 0.0
+        batch_loss = 0.0
+        current_step = 0
+        prev_losses = []
 
-            # Initializations.
-            t = time()
-            save_path = os.path.join(_FLAGS.train_dir, 'model')
-            model.load(sess, save_path)
-            print('Initializing Variables took %.3f s\n' % (time() - t))
-            print(linebreak())
-            sys.stdout.flush()
-            
-            # Gather Data.
-            dataset = get_data(en_ids_path=os.path.join(_FLAGS.data_dir, _EN_DATA),
-                               fr_ids_path=os.path.join(_FLAGS.data_dir, _FR_DATA))
-            intervals = get_weights(dataset)
+        # Training.
+        while True:
+            bucket_id = np.abs(np.random.rand() - intervals).argmin()
+            start_time = time()
+            encoder_inputs, decoder_inputs, target_weights = model.get_batch(dataset, bucket_id)
+            loss, _ = model.step(sess,
+                                 encoder_inputs,
+                                 decoder_inputs,
+                                 target_weights,
+                                 bucket_id,
+                                 forward_only=False)
+            step_time += (time() - start_time) / _FLAGS.steps_per_checkpoint
+            batch_loss += (loss/_FLAGS.steps_per_checkpoint)
+            current_step += 1
 
-            # Book-keeping.
-            step_time = 0.0
-            batch_loss = 0.0
-            current_step = 0
-            previous_losses = []
+            if current_step % _FLAGS.steps_per_checkpoint == 0:
+                perplexity = np.exp(batch_loss)
 
-            # Training.
-            while True:
-                bucket_id = np.abs(np.random.rand() - intervals).argmin()
-                start_time = time()
-                encoder_inputs, decoder_inputs, target_weights = model.get_batch(dataset, bucket_id)
-                loss, _ = model.step(sess,
-                                     encoder_inputs,
-                                     decoder_inputs,
-                                     target_weights,
-                                     bucket_id,
-                                     forward_only=False)
-                step_time += (time() - start_time) / _FLAGS.steps_per_checkpoint
-                batch_loss += loss / _FLAGS.steps_per_checkpoint
-                current_step += 1
+                if len(prev_losses) > 2 and batch_loss > max(prev_losses[-3:]):
+                    sess.run(model.learning_rate_decay_op)
 
-                if current_step % _FLAGS.steps_per_checkpoint == 0:
-                    perplexity = np.exp(loss)
-                    f.write('%f\n' % perplexity)
-
-                    if current_step > 2 * _FLAGS.steps_per_checkpoint:
-                        if batch_loss > max(previous_losses[-3:]):
-                            sess.run(model.learning_rate_decay_op)
-
-                    previous_losses.append(batch_loss)
+                prev_losses.append(batch_loss)
                     
-                    print('current-step: %d step-time: %.3f' %(current_step, step_time))
+                print('> current-step: %d step-time: %.3f perplexity: %f' %(current_step, step_time, perplexity))
 
-                    step_time = 0.0
-                    batch_loss = 0.0
+                step_time = 0.0
+                batch_loss = 0.0
 
-                    model.save(sess, save_path)
-                    sys.stdout.flush()
+                model.save(sess, save_path)
+                sys.stdout.flush()
 
 def self_test_model():
     """

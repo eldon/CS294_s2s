@@ -94,8 +94,9 @@ def embedding_attention_s2s(encoder_inputs,
                     if local_p:
                         align = tf.matmul(v_p, tf.tanh(tf.matmul(W_p, h_t, transpose_b=True)), 
                                           transpose_a=True)
-                        p_t = S * tf.sigmoid(align)
-                        scale = tf.concat(0, [tf.exp(-4.5 * tf.square((p_t - s)/S)) for s in xrange(S)])
+                        p_t = (S-1) * tf.sigmoid(align)
+                        scale = tf.exp(-4.5 * tf.square((p_t - tf.reshape(tf.cast(tf.range(S), dtype), [-1, 1]))/S))
+                        #scale = tf.concat(0, [tf.exp(-4.5 * tf.square((p_t - s)/S)) for s in xrange(S)])
                     
                     scores = tf.nn.softmax(tf.pack([tf.reshape(tf.batch_matmul(ps, batch_h_t), [-1]) 
                                                     for ps in partial_scores]), dim=0)
