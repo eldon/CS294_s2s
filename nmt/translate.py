@@ -77,7 +77,7 @@ def read_into_buckets(en_ids_path, fr_ids_path, print_every=100000):
                     sys.stdout.flush()
                 en_sequence, fr_sequence = get_int_seq(en_line), get_int_seq(fr_line)
                 en_seq_len, fr_seq_len = len(en_sequence), len(fr_sequence)
-                if en_seq_len < _MAX_EN and fr_seq_len < _MAX_FR:
+                if 0 < en_seq_len < _MAX_EN and 0 < fr_seq_len < _MAX_FR:
                     b_id = max(br(en_buckets, en_seq_len), br(fr_buckets, fr_seq_len))
                     data_set[b_id].append([en_sequence, fr_sequence])
                 en_line, fr_line = en.readline(), fr.readline()
@@ -108,8 +108,8 @@ def linebreak():
     return '-' * 50 + '\n'
 
 
-def train():
-    with open(os.path.join(_FLAGS.output_dir, 'train.out'), 'w') as f:
+def train_multi():
+    with open(os.path.join(_FLAGS.output_dir, 'train_multi.out'), 'w') as f:
         # Graph Creation.
         graph = tf.Graph()
         t = time()
@@ -232,17 +232,9 @@ def train():
                     model_two.save(sess, m2_path)
                     sys.stdout.flush()
 
-def train_one():
-    dataset = get_data(en_ids_path=os.path.join(_FLAGS.data_dir, _EN_DATA),
-                       fr_ids_path=os.path.join(_FLAGS.data_dir, _FR_DATA))
-    intervals = get_weights(dataset)
-
-    step_time = 0.0
-    batch_loss = 0.0
-    current_step = 0
-    previous_losses = []
-
-    with open(os.path.join(_FLAGS.output_dir, 'train_one.out'), 'w') as f:
+def train():
+    with open(os.path.join(_FLAGS.output_dir, 'train.out'), 'w') as f:
+        # Graph Creation.
         graph = tf.Graph()
         t = time()
         with graph.as_default():
@@ -256,8 +248,8 @@ def train_one():
                           use_lstm=True,
                           use_local=True,
                           optim='adam',
-                          scope=gscope_1.name,
                           num_samples=None)
+        print(linebreak())
         print('Initializing Graphs took %.3f s\n' % (time() - t))
         print(linebreak())
         sys.stdout.flush()
@@ -271,8 +263,19 @@ def train_one():
             print('Initializing Variables took %.3f s\n' % (time() - t))
             print(linebreak())
             sys.stdout.flush()
+            
+            # Gather Data.
+            dataset = get_data(en_ids_path=os.path.join(_FLAGS.data_dir, _EN_DATA),
+                               fr_ids_path=os.path.join(_FLAGS.data_dir, _FR_DATA))
+            intervals = get_weights(dataset)
 
-            # Graph Creation.
+            # Book-keeping.
+            step_time = 0.0
+            batch_loss = 0.0
+            current_step = 0
+            previous_losses = []
+
+            # Training.
             while True:
                 bucket_id = np.abs(np.random.rand() - intervals).argmin()
                 start_time = time()
@@ -289,7 +292,7 @@ def train_one():
 
                 if current_step % _FLAGS.steps_per_checkpoint == 0:
                     perplexity = np.exp(loss)
-                    f.write('%f\t%f\n' % perplexity)
+                    f.write('%f\n' % perplexity)
 
                     if current_step > 2 * _FLAGS.steps_per_checkpoint:
                         if batch_loss > max(previous_losses[-3:]):
