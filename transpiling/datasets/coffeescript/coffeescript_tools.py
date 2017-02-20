@@ -116,7 +116,7 @@ def save_progress(data, location, verbose=True):
     return ret
 
 
-def parse_source_files(d, ftype, compiler=_coffeescript_compile):
+def _parse_source_files(d, ftype, compiler=_coffeescript_compile):
     """Find all files with extension ftype in a directory d, recursively.
 
     For each file, 'compile' it using compiler, and append to a list of tuples
@@ -159,7 +159,7 @@ def _get_source_dirs(sources_dir):
     ]
 
 
-def collect_from_dirs(sources_dir, ftype, save_loc):
+def collect_from_dirs(sources_dir, ftype, save_loc, compiler=_coffeescript_compile)
     """Given a directory sources_dir of source directories, find all files with extension
     ftype and create build a dataset into save_loc.
     """
@@ -172,7 +172,7 @@ def collect_from_dirs(sources_dir, ftype, save_loc):
         for source_dir in source_dirs:
             collected_dirs.add(source_dir)
             print('Working in {}'.format(source_dir))
-            data = parse_source_files(source_dir, ftype)
+            data = _parse_source_files(source_dir, ftyp, compiler=_coffeescript_compile)
             print('Saving work from {}'.format(source_dir))
             save_progress(data, save_loc)
 
